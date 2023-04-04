@@ -132,7 +132,11 @@ int ReloadableInferEngine::proc_finalize() {
 int ReloadableInferEngine::reload() {
   if (check_need_reload()) {
     LOG(WARNING) << "begin reload model[" << _model_dir << "].";
-    return load(_conf);
+    int is_load = load(_conf);
+    std::string cmd = "touch " + _model_dir + "/reload_time_file";
+    LOG(INFO) << "reload model ok, touch reload_time_file cmd:" << cmd;
+    system(cmd.c_str());
+    return is_load;
   }
   return 0;
 }
