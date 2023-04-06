@@ -106,24 +106,30 @@ class Reloader(ReloadQueue):
 
     def loop(self):
         while True:
-            print('正在执行reload......{}'.format(self._local_model_path))
+            print('正在执行reload......{} \n'.format(self._local_model_path), end='')
             time.sleep(1)
 
 
 class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
 
-    def __init__(self, grpc_port, grpc_max_workers, reload_queue_size, local_path, local_model_names,
-                 local_timestamp_file_name):
+    def __init__(self, grpc_port,
+                 grpc_max_workers,
+                 reload_queue_size,
+                 local_tmp_path,
+                 local_model_path,
+                 local_model_names,
+                 local_model_timestamp_file_name):
         params = [
-            '_grpc_port', '_grpc_max_workers', '_local_path',
-            '_reload_queue_size', '_local_model_names', '_local_timestamp_file_name'
+            '_grpc_port', '_grpc_max_workers', '_local_model_path', '_local_tmp_path',
+            '_reload_queue_size', '_local_model_names', '_local_model_timestamp_file_name'
         ]
         self._grpc_port = grpc_port
         self._grpc_max_workers = grpc_max_workers
         self._reload_queue_size = reload_queue_size
-        self._local_path = local_path
+        self._local_tmp_path = local_tmp_path
+        self._local_model_path = local_model_path
         self._local_model_names = local_model_names
-        self._local_timestamp_file_name = local_timestamp_file_name
+        self._local_model_timestamp_file_name = local_model_timestamp_file_name
         self._local_model_reloader_map = {}
         self._print_params(params)
 
@@ -144,10 +150,10 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
             _LOGGER.info('{}: {}'.format(name, getattr(self, name)))
 
     def _get_local_timestamp_file_path(self):
-        return os.path.join(self._local_path, self._local_timestamp_file_name)
+        return os.path.join(self._local_model_path, self._local_model_timestamp_file_name)
 
     def _get_local_model_path(self, model_name):
-        return os.path.join(self._local_path, model_name)
+        return os.path.join(self._local_model_path, model_name)
 
     def serve(self):
         for model_name in self._local_model_names:
@@ -199,7 +205,14 @@ def serve_args():
         help="Number of the model reload queue size")
 
     parser.add_argument(
-        "--local_path",
+        "--local_tmp_path",
+        type=str,
+        default=os.path.join(os.getcwd(), '_serving_hot_load_tmp'),
+        help="The path of the folder where temporary files are stored locally. If it does not exist, it will be created automatically"
+    )
+
+    parser.add_argument(
+        "--local_model_path",
         type=str,
         required=True,
         help="Local model work path")
@@ -213,7 +226,7 @@ def serve_args():
         help="Local hot load model names")
 
     parser.add_argument(
-        "--local_timestamp_file_name",
+        "--local_model_timestamp_file_name",
         type=str,
         default='fluid_time_file',
         help="The timestamp file used locally for hot loading, The file is considered to be placed in the `local_path/local_model_name` folder."
@@ -224,5 +237,10 @@ def serve_args():
 
 if __name__ == '__main__':
     args = serve_args()
-    ModelHotLoadService(args.port, args.thread_num, args.reload_queue_size,
-                        args.local_path, args.local_model_names, args.local_timestamp_file_name).serve()
+    ModelHotLoadService(args.port,
+                        args.thread_num,
+                        args.reload_queue_size,
+                        args.local_tmp_path,
+                        args.local_model_path,
+                        args.local_model_names,
+                        args.local_model_timestamp_file_name).serve()
