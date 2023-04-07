@@ -15,10 +15,11 @@ def run():
         stub = model_hot_load_service_pb2_grpc.HotLoadModelServiceStub(channel)
         response = stub.loading(model_hot_load_service_pb2.Request(
             model_name='uci_housing_model',
-            # model_file_address='http://localhost:8080/uci_housing_model.tar.gz',
-            model_file_address='/Users/liujing/PycharmProjects/hot-load/tmp/uci_housing_model',
-            is_remote=False,
-            is_tar_packed=False,
+            model_file_address='http://localhost:8080/uci_housing_model.tar.gz',
+            # model_file_address='/Users/liujing/PycharmProjects/hot-load/tmp/uci_housing_model',
+            # model_file_address='http://localhost:8080/uci_housing_model',
+            is_remote=True,
+            is_tar_packed=True,
             timeout=300
         ))
     print(f'code: {response.err_no}, msg: {response.err_msg}')

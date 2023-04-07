@@ -218,11 +218,17 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
 
     def _pull_remote_model(self, model_name, model_file_address, is_tar_packed):
         _LOGGER.info('Pull model file address: {}'.format(model_file_address))
+        tmp_model_path = os.path.join(self._local_tmp_path, model_name)
+        # 删除已存在的模型目录
+        if os.path.exists(tmp_model_path):
+            if os.path.isfile(tmp_model_path):
+                os.remove(tmp_model_path)
+            else:
+                shutil.rmtree(tmp_model_path)
         (_, file_name) = os.path.split(model_file_address)
         if not is_tar_packed:
             # 拉取远程模型目录.
-            cmd = 'wget -nH -r -P {} {} > /dev/null 2>&1'.format(
-                os.path.join(self._local_tmp_path, model_name), model_file_address)
+            cmd = 'wget -nH -r -P {} {} > /dev/null 2>&1'.format(self._local_tmp_path, model_file_address)
         else:
             # 拉取远程模型打包文件
             cmd = 'wget -nd -N -P {} {} > /dev/null 2>&1'.format(self._local_tmp_path, model_file_address)
@@ -230,31 +236,26 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
         if os.system(cmd) != 0:
             raise Exception('pull remote model file {}, failed.'.format(model_file_address))
         else:
+            pull_model_path = os.path.join(self._local_tmp_path, file_name)
             if is_tar_packed:
-                tar_model_path = os.path.join(self._local_tmp_path, file_name)
-                _LOGGER.info("Try to unpack remote file({})".format(tar_model_path))
-                if not tarfile.is_tarfile(tar_model_path):
-                    raise Exception('Not a tar packaged file type. {}'.format(tar_model_path))
+                _LOGGER.info("Try to unpack remote file({})".format(pull_model_path))
+                if not tarfile.is_tarfile(pull_model_path):
+                    raise Exception('Not a tar packaged file type. {}'.format(pull_model_path))
                 try:
-                    # 删除已存在的模型目录
-                    new_model_path = os.path.join(self._local_tmp_path, model_name)
-                    if os.path.exists(new_model_path):
-                        if os.path.isfile(new_model_path):
-                            os.remove(new_model_path)
-                        else:
-                            shutil.rmtree(new_model_path)
                     # 解压模型文件
-                    tar = tarfile.open(tar_model_path)
+                    tar = tarfile.open(pull_model_path)
                     tar.extractall(self._local_tmp_path)
                     tar.close()
-                    tmp_model_path = os.path.join(self._local_tmp_path, file_name.split('.')[0])
+                    unpacked_model_path = os.path.join(self._local_tmp_path, file_name.split('.')[0])
                     # 更改模型目录名称
-                    os.rename(tmp_model_path, new_model_path)
+                    os.rename(unpacked_model_path, tmp_model_path)
                 except Exception as ex:
                     raise Exception('Decompressing failed, error {}'.format(repr(ex)))
                 finally:
-                    os.remove(tar_model_path)
-            return os.path.join(self._local_tmp_path, model_name)
+                    os.remove(pull_model_path)
+            else:
+                os.rename(tmp_model_path, tmp_model_path)
+        return tmp_model_path
 
     def _hot_load(self, model_name, model_file_address, is_remote, is_tar_packed, timeout):
         start_timestamp = time.time()
