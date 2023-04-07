@@ -7,12 +7,6 @@ import logging
 import threading
 import os
 from threading import Thread
-import socket
-from http.server import SimpleHTTPRequestHandler
-from http.server import CGIHTTPRequestHandler
-from http.server import ThreadingHTTPServer
-import contextlib
-from functools import partial
 import time
 from typing import TypeVar, Union, Generic, List
 import tarfile
