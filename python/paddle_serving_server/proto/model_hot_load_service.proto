@@ -11,9 +11,13 @@ message Request {
 
   string model_file_address = 2;
 
-  bool remote = 3;
+  bool is_remote = 3;
 
-  string attach = 4;
+  bool is_tar_packed = 4;
+
+  int32 timeout = 5;
+
+  string attach = 6;
 };
 
 message Response {

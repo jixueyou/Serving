@@ -3,17 +3,20 @@ import sys
 from concurrent import futures
 import logging.config
 import logging
-import socket
+
 import threading
-from queue import Queue
 import os
 from threading import Thread
+import socket
 from http.server import SimpleHTTPRequestHandler
 from http.server import CGIHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 import contextlib
 from functools import partial
 import time
+from typing import TypeVar, Union, Generic, List
+import tarfile
+import shutil
 
 sys.path.append("proto")
 from proto import model_hot_load_service_pb2_grpc
@@ -65,49 +68,106 @@ logging.config.dictConfig(logger_config)
 _LOGGER = logging.getLogger(__name__)
 
 
-class ReloadQueue(object):
+class AsyncFuture(object):
+
+    def __init__(self, callback):
+        self._callback = callback
+        self._lock = threading.Lock()
+        self._notNull = threading.Condition(self._lock)
+        self._completed = False
+        self._result = None
+
+    def wait_completed(self, timeout):
+        self._lock.acquire()
+        try:
+            if not self._completed:
+                self._notNull.wait(timeout)
+        finally:
+            self._lock.release()
+        return self._result
+
+    def completed(self, result):
+        self._lock.acquire()
+        try:
+            if not self._completed:
+                self._result = result
+                self._completed = True
+                self._notNull.notify_all()
+        finally:
+            self._lock.release()
+
+    def do_callback_func(self):
+        return self._callback()
+
+    def is_done(self):
+        return self._completed
+
+
+T = TypeVar("T", bound=Union[AsyncFuture])
+
+
+class ReloadQueue(Generic[T]):
     def __init__(self, size):
         self._size = size
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._notFull = threading.Condition(self._lock)
         self._notEmpty = threading.Condition(self._lock)
-        self._data = []
+        self._data: List[T] = []
 
-    def put(self, item):
+    def put(self, item: T):
         self._lock.acquire()
-        while len(self._data) == self._size:
-            self._notFull.wait()
-        self._data.append(item)
-        self._notEmpty.notify()
-        self._lock.release()
+        try:
+            while len(self._data) == self._size:
+                self._notFull.wait()
+            self._data.append(item)
+            self._notEmpty.notify()
+        finally:
+            self._lock.release()
 
     def take(self):
         self._lock.acquire()
-        while len(self._data) == 0:
-            self._notEmpty.wait()
-        item = self._data.pop(0)
-        self._notFull.notify()
-        self._lock.release()
+        try:
+            while len(self._data) == 0:
+                self._notEmpty.wait()
+            item = self._data.pop(0)
+            self._notFull.notify()
+        finally:
+            self._lock.release()
         return item
 
     def size(self):
         self._lock.acquire()
-        size = len(self._data)
-        self._lock.release()
+        try:
+            size = len(self._data)
+        finally:
+            self._lock.release()
         return size
+
+    def saturated(self):
+        self._lock.acquire()
+        try:
+            return self.size() >= self.capacity()
+        finally:
+            self._lock.release()
+
+    def capacity(self):
+        return self._size
 
 
 class Reloader(ReloadQueue):
 
-    def __init__(self, queue_size, local_model_path, local_timestamp_path):
+    def __init__(self, queue_size, ):
         super(Reloader, self).__init__(queue_size)
-        self._local_model_path = local_model_path
-        self._local_timestamp_path = local_timestamp_path
 
     def loop(self):
         while True:
-            print('正在执行reload......{} \n'.format(self._local_model_path), end='')
-            time.sleep(1)
+            future = self.take()
+            try:
+                future.do_callback_func()
+                future.completed(True)
+            except Exception as ex:
+                future.completed(False)
+                _LOGGER.error('Reloader hot load error: {}.'.format(repr(ex)))
 
 
 class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
@@ -134,10 +194,9 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
         self._print_params(params)
 
     def loading(self, request, context):
-        _LOGGER.info(
-            f"model_name: {request.model_name}  model_file_url: {request.model_file_address} remote: {request.remote}")
-        # todo 完成下载模型文件并且放到制定目录
-        return model_hot_load_service_pb2.Response(err_no=0, err_msg='ok')
+        return self._exec_hot_load_model(request.model_name, request.model_file_address, request.is_remote,
+                                         request.is_tar_packed,
+                                         request.timeout)
 
     def _check_params(self, params):
         for param in params:
@@ -155,14 +214,125 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
     def _get_local_model_path(self, model_name):
         return os.path.join(self._local_model_path, model_name)
 
+    def _get_local_model_reload_time_stamp(self, model_name):
+        local_model_path = self._get_local_model_path(model_name)
+        reload_time_file = os.path.join(local_model_path, 'reload_time_file')
+        if os.path.exists(reload_time_file):
+            return os.stat(reload_time_file).st_mtime
+        else:
+            return 0
+
+    def _pull_remote_model(self, model_name, model_file_address, is_tar_packed):
+        _LOGGER.info('Pull model file address: {}'.format(model_file_address))
+        (_, file_name) = os.path.split(model_file_address)
+        if not is_tar_packed:
+            # 拉取远程模型目录.
+            cmd = 'wget -nH -r -P {} {} > /dev/null 2>&1'.format(
+                os.path.join(self._local_tmp_path, model_name), model_file_address)
+        else:
+            # 拉取远程模型打包文件
+            cmd = 'wget -nd -N -P {} {} > /dev/null 2>&1'.format(self._local_tmp_path, model_file_address)
+        _LOGGER.info('Pull model file, wget cmd: {}'.format(cmd))
+        if os.system(cmd) != 0:
+            raise Exception('pull remote model file {}, failed.'.format(model_file_address))
+        else:
+            if is_tar_packed:
+                tar_model_path = os.path.join(self._local_tmp_path, file_name)
+                _LOGGER.info("Try to unpack remote file({})".format(tar_model_path))
+                if not tarfile.is_tarfile(tar_model_path):
+                    raise Exception('Not a tar packaged file type. {}'.format(tar_model_path))
+                try:
+                    # 删除已存在的模型目录
+                    new_model_path = os.path.join(self._local_tmp_path, model_name)
+                    if os.path.exists(new_model_path):
+                        if os.path.isfile(new_model_path):
+                            os.remove(new_model_path)
+                        else:
+                            shutil.rmtree(new_model_path)
+                    # 解压模型文件
+                    tar = tarfile.open(tar_model_path)
+                    tar.extractall(self._local_tmp_path)
+                    tar.close()
+                    tmp_model_path = os.path.join(self._local_tmp_path, file_name.split('.')[0])
+                    # 更改模型目录名称
+                    os.rename(tmp_model_path, new_model_path)
+                except Exception as ex:
+                    raise Exception('Decompressing failed, error {}'.format(repr(ex)))
+                finally:
+                    os.remove(tar_model_path)
+            return os.path.join(self._local_tmp_path, model_name)
+
+    def _hot_load(self, model_name, model_file_address, is_remote, is_tar_packed, timeout):
+        start_timestamp = time.time()
+        prime_reload_timestamp = self._get_local_model_reload_time_stamp(model_name)
+        _LOGGER.info('Hot load model_name: {}, start timestamp: {}, '
+                     'prime reload timestamp: {}.'.format(model_name, start_timestamp, prime_reload_timestamp))
+        # 拉取模型文件
+        if is_remote:
+            new_local_model_path = self._pull_remote_model(model_name, model_file_address, is_tar_packed)
+        else:
+            new_local_model_path = model_file_address
+        # 更新模型文件
+        self._update_local_model(model_name, new_local_model_path)
+
+        # 等待模型更新完成
+        while True:
+            current_reload_timestamp = self._get_local_model_reload_time_stamp(model_name)
+            current_timestamp = time.time()
+            if current_reload_timestamp > prime_reload_timestamp:
+                _LOGGER.info('Hot load model_name: {} succeeded.'.format(model_name))
+                break
+            if current_timestamp - start_timestamp > timeout:
+                _LOGGER.info('Hot load model_name: {} timeout.'.format(model_name))
+            time.sleep(1)
+            _LOGGER.info('Hot load model_name: {} waiting for update to succeed.'.format(model_name))
+
+    def _update_local_model(self, model_name, new_local_model_path):
+        cmd = 'cp -r {}/* {}'.format(new_local_model_path, self._get_local_model_path(model_name))
+        _LOGGER.debug('Update model cmd: {}'.format(cmd))
+        if os.system(cmd) != 0:
+            raise Exception('Update local model failed.')
+
+    def _exec_hot_load_model(self, model_name, model_file_address, is_remote, is_tar_packed, timeout):
+        _LOGGER.info(
+            f"Exec hot load model_name: {model_name}, model_file_url: {model_file_address}, is_remote: {is_remote}, "
+            f"is_tar_packed: {is_tar_packed}, timeout: {timeout}.")
+        if model_name in self._local_model_reloader_map:
+            reloader = self._local_model_reloader_map[model_name]
+            saturated = reloader.saturated()
+            if saturated:
+                return model_hot_load_service_pb2.Response(err_no=10001,
+                                                           err_msg='Exec hot load model_name {} queue saturated'.format(
+                                                               model_name))
+            do_hot_load = lambda: self._hot_load(model_name, model_file_address, is_remote, is_tar_packed, timeout)
+            future = AsyncFuture(callback=do_hot_load)
+            # 放入处理队列
+            reloader.put(future)
+            # 等待热加载完成
+            ok = future.wait_completed(timeout)
+            if ok:
+                return model_hot_load_service_pb2.Response(err_no=0, err_msg='ok')
+            else:
+                return model_hot_load_service_pb2.Response(err_no=10002,
+                                                           err_msg='Exec hot load model_name {} failed'.format(
+                                                               model_name))
+        else:
+            return model_hot_load_service_pb2.Response(err_no=9999,
+                                                       err_msg='Exec hot load model_name {} not found.'.format(
+                                                           model_name))
+
     def serve(self):
+        if not os.path.exists(self._local_tmp_path):
+            _LOGGER.info('mkdir: {}'.format(self._local_tmp_path))
+            os.makedirs(self._local_tmp_path)
+
         for model_name in self._local_model_names:
             model_path = self._get_local_model_path(model_name)
             if os.path.isdir(model_path):
                 pass
             elif os.path.isfile(model_path):
                 raise ValueError('model path: {}, should be a dir not file.'.format(model_path))
-            reloader = Reloader(self._reload_queue_size, model_path, self._get_local_timestamp_file_path)
+            reloader = Reloader(self._reload_queue_size)
             self._local_model_reloader_map[model_name] = reloader
             Thread(target=reloader.loop, args=[], daemon=True).start()
 
@@ -231,7 +401,6 @@ def serve_args():
         default='fluid_time_file',
         help="The timestamp file used locally for hot loading, The file is considered to be placed in the `local_path/local_model_name` folder."
     )
-
     return parser.parse_args()
 
 
