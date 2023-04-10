@@ -28,6 +28,9 @@ if version_suffix != "":
     package_version = package_version + "." + version_suffix
 
 max_version, mid_version, min_version = util.python_version()
+
+util.gen_model_hot_load_service_code("paddle_serving_server")
+
 # gen pipeline proto code
 util.gen_pipeline_code("paddle_serving_server")
 

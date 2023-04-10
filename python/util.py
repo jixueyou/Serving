@@ -31,6 +31,15 @@ def find_package(pkgname):
         return False
 
 
+def gen_model_hot_load_service_code(package_name):
+    protoc.main((
+        '',
+        '-I.',
+        '--python_out=.',
+        '--grpc_python_out=.',
+        '{}/proto/model_hot_load_service.proto'.format(package_name),))
+
+
 def gen_pipeline_code(package_name):
     # pipeline service proto
     protoc.main((

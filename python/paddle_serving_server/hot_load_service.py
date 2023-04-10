@@ -12,9 +12,9 @@ from typing import TypeVar, Union, Generic, List
 import tarfile
 import shutil
 
-sys.path.append("proto")
-from proto import model_hot_load_service_pb2_grpc
-from proto import model_hot_load_service_pb2
+# sys.path.append("proto")
+from .proto import model_hot_load_service_pb2_grpc
+from .proto import model_hot_load_service_pb2
 import argparse
 
 log_dir = "logs"
