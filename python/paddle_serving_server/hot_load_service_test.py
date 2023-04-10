@@ -11,11 +11,11 @@ from proto import model_hot_load_service_pb2
 
 
 def run():
-    with grpc.insecure_channel('localhost:9099') as channel:
+    with grpc.insecure_channel('10.0.197.217:9099') as channel:
         stub = model_hot_load_service_pb2_grpc.HotLoadModelServiceStub(channel)
         response = stub.loading(model_hot_load_service_pb2.Request(
             model_name='uci_housing_model',
-            model_file_address='http://localhost:8080/uci_housing_model.tar.gz',
+            model_file_address='http://10.1.130.16:8080/uci_housing_model.tar.gz',
             # model_file_address='/Users/liujing/PycharmProjects/hot-load/tmp/uci_housing_model',
             # model_file_address='http://localhost:8080/uci_housing_model',
             is_remote=True,

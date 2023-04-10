@@ -202,8 +202,8 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
         for name in params_name:
             _LOGGER.info('{}: {}'.format(name, getattr(self, name)))
 
-    def _get_local_timestamp_file_path(self):
-        return os.path.join(self._local_model_path, self._local_model_timestamp_file_name)
+    def _get_local_timestamp_file_path(self, model_name):
+        return os.path.join(self._local_model_path, model_name, self._local_model_timestamp_file_name)
 
     def _get_local_model_path(self, model_name):
         return os.path.join(self._local_model_path, model_name)
@@ -257,6 +257,13 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
                 os.rename(tmp_model_path, tmp_model_path)
         return tmp_model_path
 
+    def _update_local_donefile(self, model_name):
+        done_file_path = self._get_local_timestamp_file_path(model_name)
+        cmd = 'touch {}'.format(done_file_path)
+        _LOGGER.info('update done timestamp cmd: {}'.format(cmd))
+        if os.system(cmd) != 0:
+            raise Exception('update local done file failed.')
+
     def _hot_load(self, model_name, model_file_address, is_remote, is_tar_packed, timeout):
         start_timestamp = time.time()
         prime_reload_timestamp = self._get_local_model_reload_time_stamp(model_name)
@@ -284,7 +291,7 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
 
     def _update_local_model(self, model_name, new_local_model_path):
         cmd = 'cp -r {}/* {}'.format(new_local_model_path, self._get_local_model_path(model_name))
-        _LOGGER.debug('Update model cmd: {}'.format(cmd))
+        _LOGGER.info('Update model cmd: {}'.format(cmd))
         if os.system(cmd) != 0:
             raise Exception('Update local model failed.')
 
