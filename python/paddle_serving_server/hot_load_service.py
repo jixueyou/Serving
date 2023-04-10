@@ -17,7 +17,7 @@ from .proto import model_hot_load_service_pb2_grpc
 from .proto import model_hot_load_service_pb2
 import argparse
 
-log_dir = "logs"
+log_dir = "log"
 if 'HOT_LOAD_LOG_PATH' in os.environ:
     hot_load_log_path = os.environ['HOT_LOAD_LOG_PATH']
     log_dir = os.path.join(hot_load_log_path, log_dir)
