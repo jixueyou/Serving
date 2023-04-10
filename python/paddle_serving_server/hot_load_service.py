@@ -257,7 +257,7 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
                 os.rename(tmp_model_path, tmp_model_path)
         return tmp_model_path
 
-    def _update_local_donefile(self, model_name):
+    def _update_local_done_file(self, model_name):
         done_file_path = self._get_local_timestamp_file_path(model_name)
         cmd = 'touch {}'.format(done_file_path)
         _LOGGER.info('update done timestamp cmd: {}'.format(cmd))
@@ -276,6 +276,8 @@ class ModelHotLoadService(model_hot_load_service_pb2_grpc.HotLoadModelService):
             new_local_model_path = model_file_address
         # 更新模型文件
         self._update_local_model(model_name, new_local_model_path)
+        # 更新模型更新时间戳
+        self._update_local_done_file(model_name)
 
         # 等待模型更新完成
         while True:
