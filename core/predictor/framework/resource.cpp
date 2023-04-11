@@ -13,8 +13,10 @@
 // limitations under the License.
 
 #include "core/predictor/framework/resource.h"
+
 #include <sstream>
 #include <string>
+
 #include "core/predictor/common/inner_common.h"
 #include "core/predictor/framework/kv_manager.h"
 #ifdef BCLOUD
@@ -24,8 +26,8 @@ namespace baidu {
 namespace paddle_serving {
 namespace predictor {
 
-using configure::ResourceConf;
 using configure::GeneralModelConfig;
+using configure::ResourceConf;
 using rec::mcube::CubeAPI;
 
 std::vector<std::shared_ptr<PaddleGeneralModelConfig>>
@@ -332,16 +334,24 @@ size_t Resource::get_cube_quant_bits() { return this->_cube_quant_bits; }
 
 int Resource::reload() {
   LOG(INFO) << "Begin check for new model resource...";
-  LOG(INFO) << "resource path: " << this->_resource_path << " resource file: " << this->_resource_file;
+  LOG(INFO) << "resource path: " << this->_resource_path
+            << " resource file: " << this->_resource_file;
   ResourceConf resource_conf;
-  if (configure::read_proto_conf(this->_resource_path, this->_resource_file, &resource_conf) != 0) {
-    LOG(ERROR) << "Failed initialize resource from: " << this->_resource_path << "/" << this->_resource_file;
+  if (configure::read_proto_conf(
+          this->_resource_path, this->_resource_file, &resource_conf) != 0) {
+    LOG(ERROR) << "Failed initialize resource from: " << this->_resource_path
+               << "/" << this->_resource_file;
     return -1;
   }
 
   if (FLAGS_enable_model_toolkit) {
     size_t model_toolkit_num = resource_conf.model_toolkit_path_size();
-    std::shared_ptr<int> engine_index_ptr = _engine_index_ptr
+    if (InferManager::instance().set_taskexecutor_num(model_toolkit_num) != 0) {
+      LOG(ERROR) << "failed set_taskexecutor_num";
+      return -1;
+    }
+
+    std::shared_ptr<int> engine_index_ptr = _engine_index_ptr;
     for (size_t mi = 0; mi < model_toolkit_num; ++mi) {
       std::string model_toolkit_path = resource_conf.model_toolkit_path(mi);
       std::string model_toolkit_file = resource_conf.model_toolkit_file(mi);
@@ -352,11 +362,12 @@ int Resource::reload() {
                    << model_toolkit_path << "/" << model_toolkit_file;
         return -1;
       }
-//      if (KVManager::instance().proc_initialize(
-//              model_toolkit_path.c_str(), model_toolkit_file.c_str()) != 0) {
-//        LOG(ERROR) << "Failed proc initialize kvmanager, config: "
-//                   << model_toolkit_path << "/" << model_toolkit_file;
-//      }
+      //      if (KVManager::instance().proc_initialize(
+      //              model_toolkit_path.c_str(), model_toolkit_file.c_str()) !=
+      //              0) {
+      //        LOG(ERROR) << "Failed proc initialize kvmanager, config: "
+      //                   << model_toolkit_path << "/" << model_toolkit_file;
+      //      }
     }
   }
 
