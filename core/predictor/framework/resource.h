@@ -147,6 +147,8 @@ class Resource {
   std::string _resource_path;
   std::string _resource_file;
 
+  std::shared_ptr<int> _engine_index_ptr = std::make_shared<int>(0);
+
   // bthread local key
   THREAD_KEY_T _tls_bspec_key;
 };

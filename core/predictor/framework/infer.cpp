@@ -413,6 +413,11 @@ int InferManager::proc_initialize(const char* path,
     LOG(INFO) << "model_toolkit_conf.engines(" << ei
               << ").name: " << model_toolkit_conf.engines(ei).name();
     std::string engine_name = model_toolkit_conf.engines(ei).name();
+    // 如果已存在则不需要初始化
+    if (_map.find(engine_name) !=_map.end() ) {
+      LOG(WARNING) << "Proc initialized engine: " << engine_name;
+      continue;
+    }
     VersionedInferEngine* engine = new (std::nothrow) VersionedInferEngine();
     int temp_engine_index_ptr = *engine_index_ptr;
     engine->set_model_index(temp_engine_index_ptr);

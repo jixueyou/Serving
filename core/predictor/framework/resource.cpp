@@ -333,7 +333,34 @@ size_t Resource::get_cube_quant_bits() { return this->_cube_quant_bits; }
 int Resource::reload() {
   LOG(INFO) << "Begin check for new model resource...";
   LOG(INFO) << "resource path: " << this->_resource_path << " resource file: " << this->_resource_file;
+  ResourceConf resource_conf;
+  if (configure::read_proto_conf(path, file, &resource_conf) != 0) {
+    LOG(ERROR) << "Failed initialize resource from: " << path << "/" << file;
+    return -1;
+  }
 
+  if (FLAGS_enable_model_toolkit) {
+    size_t model_toolkit_num = resource_conf.model_toolkit_path_size();
+    std::shared_ptr<int> engine_index_ptr = _engine_index_ptr
+    for (size_t mi = 0; mi < model_toolkit_num; ++mi) {
+      std::string model_toolkit_path = resource_conf.model_toolkit_path(mi);
+      std::string model_toolkit_file = resource_conf.model_toolkit_file(mi);
+      if (InferManager::instance().proc_initialize(model_toolkit_path.c_str(),
+                                                   model_toolkit_file.c_str(),
+                                                   engine_index_ptr) != 0) {
+        LOG(ERROR) << "failed proc initialize modeltoolkit, config: "
+                   << model_toolkit_path << "/" << model_toolkit_file;
+        return -1;
+      }
+//      if (KVManager::instance().proc_initialize(
+//              model_toolkit_path.c_str(), model_toolkit_file.c_str()) != 0) {
+//        LOG(ERROR) << "Failed proc initialize kvmanager, config: "
+//                   << model_toolkit_path << "/" << model_toolkit_file;
+//      }
+    }
+  }
+
+  // 模型资源重载
   if (FLAGS_enable_model_toolkit && InferManager::instance().reload() != 0) {
     LOG(ERROR) << "Failed reload infer manager";
     return -1;
