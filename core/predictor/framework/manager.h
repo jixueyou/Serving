@@ -53,6 +53,8 @@ class WorkflowManager {
   }
 
   int initialize(const std::string path, const std::string file) {
+   _workflow_path = path;
+   _workflow_file = file;
     WorkflowConf workflow_conf;
     if (configure::read_proto_conf(path, file, &workflow_conf) != 0) {
       LOG(ERROR) << "Failed load manager<" << Workflow::tag()
@@ -118,6 +120,7 @@ class WorkflowManager {
   }
 
   int reload() {
+    LOG(INFO) << "workflow path: " << this->_workflow_path << " workflow file: " << this->_workflow_file;
     int ret = 0;
     typename boost::unordered_map<std::string, Workflow*>::iterator it =
         _item_map.begin();
@@ -140,6 +143,11 @@ class WorkflowManager {
 
  private:
   boost::unordered_map<std::string, Workflow*> _item_map;
+
+  std::string _workflow_path;
+
+  std::string _workflow_file;
+
 };
 
 class InferServiceManager {

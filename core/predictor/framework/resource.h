@@ -144,6 +144,9 @@ class Resource {
   // cube quantify bit size, support 0/8. set 0 if no quant.
   size_t _cube_quant_bits;
 
+  std::string _resource_path;
+  std::string _resource_file;
+
   // bthread local key
   THREAD_KEY_T _tls_bspec_key;
 };

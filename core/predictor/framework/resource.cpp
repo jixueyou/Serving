@@ -84,6 +84,8 @@ void Resource::print_general_model_config(
 }
 
 int Resource::initialize(const std::string& path, const std::string& file) {
+  _resource_path = path;
+  _resource_file = file;
   ResourceConf resource_conf;
   if (configure::read_proto_conf(path, file, &resource_conf) != 0) {
     LOG(ERROR) << "Failed initialize resource from: " << path << "/" << file;
@@ -329,6 +331,9 @@ int Resource::thread_clear() {
 size_t Resource::get_cube_quant_bits() { return this->_cube_quant_bits; }
 
 int Resource::reload() {
+  LOG(INFO) << "Begin check for new model resource...";
+  LOG(INFO) << "resource path: " << this->_resource_path << " resource file: " << this->_resource_file;
+
   if (FLAGS_enable_model_toolkit && InferManager::instance().reload() != 0) {
     LOG(ERROR) << "Failed reload infer manager";
     return -1;
