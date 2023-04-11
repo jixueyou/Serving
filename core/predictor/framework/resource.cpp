@@ -335,7 +335,7 @@ int Resource::reload() {
   LOG(INFO) << "resource path: " << this->_resource_path << " resource file: " << this->_resource_file;
   ResourceConf resource_conf;
   if (configure::read_proto_conf(this->_resource_path, this->_resource_file, &resource_conf) != 0) {
-    LOG(ERROR) << "Failed initialize resource from: " << path << "/" << file;
+    LOG(ERROR) << "Failed initialize resource from: " << this->_resource_path << "/" << this->_resource_file;
     return -1;
   }
 
