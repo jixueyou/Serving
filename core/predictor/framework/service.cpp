@@ -295,6 +295,7 @@ std::vector<Workflow*>* InferService::_map_request_to_workflow(
       request->GetReflection()->GetString(*request, field);
   std::vector<Workflow*>* p_workflow =
       _request_to_workflow_map.seek(field_value);
+  LOG(INFO) << "(logid=" << log_id << ") field =========>   " << desc->full_name() << " , " << _request_field_key << " , " << field_value;
   if (p_workflow == NULL) {
     LOG(ERROR) << "(logid=" << log_id << ") cannot find key[" << field_value
                << "] in _request_to_workflow_map";
