@@ -408,6 +408,7 @@ int InferManager::proc_initialize(const char* path,
     LOG(ERROR) << "failed load infer config, path: " << path << "/" << file;
     return -1;
   }
+  bool is_extend = _map.size() != 0;
   uint32_t engine_num = model_toolkit_conf.engines_size();
   for (uint32_t ei = 0; ei < engine_num; ++ei) {
     LOG(INFO) << "model_toolkit_conf.engines(" << ei
@@ -434,6 +435,9 @@ int InferManager::proc_initialize(const char* path,
     if (!r.second) {
       LOG(ERROR) << "Failed insert item: " << engine_name;
       return -1;
+    }
+    if (is_extend && engine->thrd_initialize() != 0) {
+      LOG(ERROR) << "Failed initialize engine thread, name:" << engine_name;
     }
     LOG(WARNING) << "Succ proc initialize engine: " << engine_name;
   }
