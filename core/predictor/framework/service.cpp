@@ -139,6 +139,7 @@ int InferService::inference(const google::protobuf::Message* request,
                             const uint64_t log_id,
                             butil::IOBufBuilder* debug_os) {
   TRACEPRINTF("(logid=%" PRIu64 ") start to inference", log_id);
+  LOG(ERROR) << "debug (logid=" << log_id << ") ==============================>  " << request->model_name();
   // when funtion call begins, framework will reset
   // thread local variables&resources automatically.
   if (Resource::instance().thread_clear() != 0) {

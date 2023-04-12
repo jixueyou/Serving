@@ -87,6 +87,7 @@ message Request {
   repeated string fetch_var_names = 2;
   bool profile_server = 3;
   uint64 log_id = 4;
+  string model_name = 5;
 };
 
 message Response {
