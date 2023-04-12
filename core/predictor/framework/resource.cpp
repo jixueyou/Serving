@@ -362,12 +362,9 @@ int Resource::reload() {
                    << model_toolkit_path << "/" << model_toolkit_file;
         return -1;
       }
-      //      if (KVManager::instance().proc_initialize(
-      //              model_toolkit_path.c_str(), model_toolkit_file.c_str()) !=
-      //              0) {
-      //        LOG(ERROR) << "Failed proc initialize kvmanager, config: "
-      //                   << model_toolkit_path << "/" << model_toolkit_file;
-      //      }
+      if (KVManager::instance().proc_initialize(model_toolkit_path.c_str(), model_toolkit_file.c_str()) !=0) {
+          LOG(ERROR) << "Failed proc initialize kvmanager, config: " << model_toolkit_path << "/" << model_toolkit_file;
+      }
     }
   }
 

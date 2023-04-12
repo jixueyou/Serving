@@ -46,6 +46,11 @@ class KVManager {
     for (size_t ei = 0; ei < engine_num; ++ei) {
       const configure::EngineDesc &conf = model_toolkit_conf.engines(ei);
       std::string engine_name = conf.name();
+      if (_map.find(engine_name) !=_map.end() ) {
+        LOG(WARNING) << "Proc initialized kvmanager for engine: " << engine_name;
+        continue;
+      }
+
       KVInfo *kvinfo = new (std::nothrow) KVInfo();
       kvinfo->model_name = engine_name;
       if (conf.has_sparse_param_service_type()) {
