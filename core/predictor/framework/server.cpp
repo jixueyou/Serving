@@ -153,12 +153,19 @@ void* ServerManager::_reload_worker(void* args) {
             << "interval_s: " << FLAGS_reload_interval_s;
   while (ServerManager::reload_starting()) {
     LOG(INFO) << "Begin reload framework...";
+    // 重载资源
     if (Resource::instance().reload() != 0) {
       LOG(ERROR) << "Failed reload resource!";
     }
 
+    //重载工作流
     if (WorkflowManager::instance().reload() != 0) {
       LOG(ERROR) << "Failed reload workflows";
+    }
+
+    //重载接口服务
+    if(InferServiceManager::instance().reload() != 0) {
+      LOG(ERROR) << "Failed reload services";
     }
 
     usleep(FLAGS_reload_interval_s * 1000000);

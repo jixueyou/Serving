@@ -139,11 +139,11 @@ int InferService::inference(const google::protobuf::Message* request,
                             const uint64_t log_id,
                             butil::IOBufBuilder* debug_os) {
   TRACEPRINTF("(logid=%" PRIu64 ") start to inference", log_id);
-  std::string request_model_name_field_key = "model_name";
-  const google::protobuf::Descriptor* desc = request->GetDescriptor();
-  const google::protobuf::FieldDescriptor* model_name_field = desc->FindFieldByName(request_model_name_field_key);
-  const std::string& model_name_value = request->GetReflection()->GetString(*request, model_name_field);
-  LOG(ERROR) << "debug (logid=" << log_id << ") ==============================>  " << model_name_value;
+  //std::string request_model_name_field_key = "model_name";
+  //const google::protobuf::Descriptor* desc = request->GetDescriptor();
+  //const google::protobuf::FieldDescriptor* model_name_field = desc->FindFieldByName(request_model_name_field_key);
+  //const std::string& model_name_value = request->GetReflection()->GetString(*request, model_name_field);
+
   // when funtion call begins, framework will reset
   // thread local variables&resources automatically.
   if (Resource::instance().thread_clear() != 0) {
