@@ -15,6 +15,7 @@
 #pragma once
 #include <string>
 #include <utility>
+
 #include "core/predictor/common/constant.h"
 #include "core/predictor/common/inner_common.h"
 #include "core/predictor/framework/service.h"
@@ -24,8 +25,8 @@ namespace baidu {
 namespace paddle_serving {
 namespace predictor {
 
-using configure::WorkflowConf;
 using configure::InferServiceConf;
+using configure::WorkflowConf;
 
 class Workflow;
 // class InferService;
@@ -52,48 +53,88 @@ class WorkflowManager {
     return mgr;
   }
 
-  int initialize(const std::string path, const std::string file) {
-   _workflow_path = path;
-   _workflow_file = file;
+  int load_workflows(bool mem_merge = 0) {
     WorkflowConf workflow_conf;
-    if (configure::read_proto_conf(path, file, &workflow_conf) != 0) {
+    if (configure::read_proto_conf(
+            _workflow_path, _workflow_file, &workflow_conf) != 0) {
       LOG(ERROR) << "Failed load manager<" << Workflow::tag()
-                 << "> configure from " << path << "/" << file;
+                 << "> configure from " << _workflow_path << "/"
+                 << _workflow_file;
       return -1;
     }
 
-    try {
-      uint32_t item_size = workflow_conf.workflows_size();
-      for (uint32_t ii = 0; ii < item_size; ii++) {
-        std::string name = workflow_conf.workflows(ii).name();
-        Workflow* item = new (std::nothrow) Workflow();
-        if (item == NULL) {
-          LOG(ERROR) << "Failed create " << Workflow::tag() << " for: " << name;
-          return -1;
-        }
-        if (item->init(workflow_conf.workflows(ii)) != 0) {
-          LOG(ERROR) << "Failed init item: " << name << " at:" << ii << "!";
-          return -1;
-        }
+    std::unordered_set<std::string> new_workflow_set;
+    auto insert_workflows = [workflow_conf, &new_workflow_set]() -> int {
+      try {
+        uint32_t item_size = workflow_conf.workflows_size();
+        for (uint32_t ii = 0; ii < item_size; ii++) {
+          std::string name = workflow_conf.workflows(ii).name();
+          new_workflow_set.insert(name);
 
-        std::pair<
-            typename boost::unordered_map<std::string, Workflow*>::iterator,
-            bool>
-            r = _item_map.insert(std::make_pair(name, item));
-        if (!r.second) {
-          LOG(ERROR) << "Failed insert item:" << name << " at:" << ii << "!";
-          return -1;
-        }
+          // 忽略已经初始化的工作流
+          if (_item_map.find(name) != _map.end()) {
+            LOG(WARNING) << "Proc inserted workflow name: " << name;
+            continue;
+          }
 
-        LOG(INFO) << "Succ init item:" << name << " from conf:" << path << "/"
-                  << file << ", at:" << ii << "!";
+          Workflow* item = new (std::nothrow) Workflow();
+          if (item == NULL) {
+            LOG(ERROR) << "Failed create " << Workflow::tag()
+                       << " for: " << name;
+            return -1;
+          }
+          if (item->init(workflow_conf.workflows(ii)) != 0) {
+            LOG(ERROR) << "Failed init item: " << name << " at:" << ii << "!";
+            return -1;
+          }
+
+          std::pair<
+              typename boost::unordered_map<std::string, Workflow*>::iterator,
+              bool>
+              r = _item_map.insert(std::make_pair(name, item));
+          if (!r.second) {
+            LOG(ERROR) << "Failed insert item:" << name << " at:" << ii << "!";
+            return -1;
+          }
+
+          LOG(INFO) << "Succ init item:" << name
+                    << " from conf:" << _workflow_path << "/" << _workflow_file
+                    << ", at:" << ii << "!";
+        }
+      } catch (...) {
+        LOG(ERROR) << "Config[" << _workflow_path << "/" << _workflow_file
+                   << "] format "
+                   << "invalid, load failed";
+        return -1;
       }
-    } catch (...) {
-      LOG(ERROR) << "Config[" << path << "/" << file << "] format "
-                 << "invalid, load failed";
-      return -1;
+    };
+    if (!mem_merge) {
+      return insert_workflows();
+    } else {
+      if (insert_workflows() != 0) {
+        return -1;
+      }
+      typename boost::unordered_map<std::string, Workflow*>::iterator it =
+          _item_map.begin();
+      for (; it != _item_map.end(); ++it) {
+        std::string workflow_name = it->first;
+        if (new_workflow_set.find(workflow_name) == new_workflow_set.end()) {
+          // 擦除不存在的工作流
+          delete (it->second);
+          it->second = nullptr;
+          _item_map.erase(it++);
+        } else {
+          it++;
+        }
+      }
+      return 0;
     }
-    return 0;
+  }
+
+  int initialize(const std::string path, const std::string file) {
+    _workflow_path = path;
+    _workflow_file = file;
+    load_workflows();
   }
 
   Workflow* create_item() { return create_item_impl<Workflow>(); }
@@ -120,7 +161,12 @@ class WorkflowManager {
   }
 
   int reload() {
-    LOG(INFO) << "workflow path: " << this->_workflow_path << " workflow file: " << this->_workflow_file;
+    // 重载工作流
+    if (load_workflows(1) != 0) {
+      LOG(ERROR) << "Reload workflows file path:" << name << " at: ["
+                 << _workflow_path << "/" << _workflow_file << "] failed!";
+    }
+
     int ret = 0;
     typename boost::unordered_map<std::string, Workflow*>::iterator it =
         _item_map.begin();
@@ -147,7 +193,6 @@ class WorkflowManager {
   std::string _workflow_path;
 
   std::string _workflow_file;
-
 };
 
 class InferServiceManager {
