@@ -62,9 +62,9 @@ class WorkflowManager {
                  << _workflow_file;
       return -1;
     }
-
+    // 当前配置文件读取的工作流名称
     std::unordered_set<std::string> new_workflow_set;
-    auto insert_workflows = [workflow_conf, &new_workflow_set]() -> int {
+    auto insert_workflows = [this, workflow_conf, &new_workflow_set]() -> int {
       try {
         uint32_t item_size = workflow_conf.workflows_size();
         for (uint32_t ii = 0; ii < item_size; ii++) {
@@ -72,7 +72,7 @@ class WorkflowManager {
           new_workflow_set.insert(name);
 
           // 忽略已经初始化的工作流
-          if (_item_map.find(name) != _map.end()) {
+          if (this->_item_map->find(name) != this->_item_map->end()) {
             LOG(WARNING) << "Proc inserted workflow name: " << name;
             continue;
           }
@@ -91,19 +91,20 @@ class WorkflowManager {
           std::pair<
               typename boost::unordered_map<std::string, Workflow*>::iterator,
               bool>
-              r = _item_map.insert(std::make_pair(name, item));
+              r = this->_item_map->insert(std::make_pair(name, item));
           if (!r.second) {
             LOG(ERROR) << "Failed insert item:" << name << " at:" << ii << "!";
             return -1;
           }
 
           LOG(INFO) << "Succ init item:" << name
-                    << " from conf:" << _workflow_path << "/" << _workflow_file
-                    << ", at:" << ii << "!";
+                    << " from conf:" << this->_workflow_path << "/"
+                    << this->_workflow_file << ", at:" << ii << "!";
         }
+        return 0;
       } catch (...) {
-        LOG(ERROR) << "Config[" << _workflow_path << "/" << _workflow_file
-                   << "] format "
+        LOG(ERROR) << "Config[" << this->_workflow_path << "/"
+                   << this->_workflow_file << "] format "
                    << "invalid, load failed";
         return -1;
       }
