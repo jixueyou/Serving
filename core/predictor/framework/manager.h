@@ -63,10 +63,11 @@ class WorkflowManager {
                  << _workflow_file;
       return -1;
     }
-    // 当前配置文件读取的工作流名称
-    std::unordered_set<std::string> new_workflow_set;
-    auto insert_workflows = [this, workflow_conf, &new_workflow_set]() -> int {
-      try {
+    try {
+      // 当前配置文件读取的工作流名称
+      std::unordered_set<std::string> new_workflow_set;
+      auto insert_workflows =
+          [this, workflow_conf, &new_workflow_set]() -> int {
         uint32_t item_size = workflow_conf.workflows_size();
         for (uint32_t ii = 0; ii < item_size; ii++) {
           std::string name = workflow_conf.workflows(ii).name();
@@ -101,33 +102,33 @@ class WorkflowManager {
                     << this->_workflow_file << ", at:" << ii << "!";
         }
         return 0;
-      } catch (...) {
-        LOG(ERROR) << "Config[" << this->_workflow_path << "/"
-                   << this->_workflow_file << "] format "
-                   << "invalid, load failed";
-        return -1;
-      }
-    };
-    if (mem_merge) {
-      if (insert_workflows() != 0) {
-        return -1;
-      }
-      typename boost::unordered_map<std::string, Workflow*>::iterator it =
-          _item_map.begin();
-      for (; it != _item_map.end();) {
-        std::string workflow_name = it->first;
-        if (new_workflow_set.find(workflow_name) == new_workflow_set.end()) {
-          // 擦除不存在的工作流
-          delete (it->second);
-          it->second = nullptr;
-          _item_map.erase(it++);
-        } else {
-          it++;
+      };
+      if (mem_merge) {
+        if (insert_workflows() != 0) {
+          return -1;
         }
+        typename boost::unordered_map<std::string, Workflow*>::iterator it =
+            _item_map.begin();
+        for (; it != _item_map.end();) {
+          std::string workflow_name = it->first;
+          if (new_workflow_set.find(workflow_name) == new_workflow_set.end()) {
+            // 擦除不存在的工作流
+            delete (it->second);
+            it->second = nullptr;
+            _item_map.erase(it++);
+          } else {
+            it++;
+          }
+        }
+        return 0;
+      } else {
+        return insert_workflows();
       }
-      return 0;
-    } else {
-      return insert_workflows();
+    } catch (...) {
+      LOG(ERROR) << "Config[" << this->_workflow_path << "/"
+                 << this->_workflow_file << "] format "
+                 << "invalid, load failed";
+      return -1;
     }
   }
 
