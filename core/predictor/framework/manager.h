@@ -72,7 +72,7 @@ class WorkflowManager {
           new_workflow_set.insert(name);
 
           // 忽略已经初始化的工作流
-          if (this->_item_map->find(name) != this->_item_map->end()) {
+          if (this->_item_map.find(name) != this->_item_map.end()) {
             LOG(WARNING) << "Proc inserted workflow name: " << name;
             continue;
           }
@@ -91,7 +91,7 @@ class WorkflowManager {
           std::pair<
               typename boost::unordered_map<std::string, Workflow*>::iterator,
               bool>
-              r = this->_item_map->insert(std::make_pair(name, item));
+              r = this->_item_map.insert(std::make_pair(name, item));
           if (!r.second) {
             LOG(ERROR) << "Failed insert item:" << name << " at:" << ii << "!";
             return -1;
