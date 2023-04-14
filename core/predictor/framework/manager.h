@@ -54,7 +54,7 @@ class WorkflowManager {
     return mgr;
   }
 
-  int load_workflows(bool mem_merge = 0) {
+  int load_workflows(bool mem_merge = false) {
     WorkflowConf workflow_conf;
     if (configure::read_proto_conf(
             _workflow_path, _workflow_file, &workflow_conf) != 0) {
@@ -111,9 +111,7 @@ class WorkflowManager {
         return -1;
       }
     };
-    if (!mem_merge) {
-      return insert_workflows();
-    } else {
+    if (mem_merge) {
       LOG(ERROR) << "111111111111111111111111";
       if (insert_workflows() != 0) {
         return -1;
@@ -135,13 +133,16 @@ class WorkflowManager {
         }
       }
       return 0;
+    } else {
+      LOG(ERROR) << "0000000000000000000000";
+      return insert_workflows();
     }
   }
 
   int initialize(const std::string path, const std::string file) {
     _workflow_path = path;
     _workflow_file = file;
-    load_workflows();
+    load_workflows(false);
   }
 
   Workflow* create_item() { return create_item_impl<Workflow>(); }
@@ -169,7 +170,7 @@ class WorkflowManager {
 
   int reload() {
     // 重载工作流
-    if (load_workflows(1) != 0) {
+    if (load_workflows(true) != 0) {
       LOG(ERROR) << "Reload workflows file path:"
                  << " at: [" << _workflow_path << "/" << _workflow_file
                  << "] failed!";
