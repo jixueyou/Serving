@@ -163,8 +163,9 @@ class WorkflowManager {
   int reload() {
     // 重载工作流
     if (load_workflows(1) != 0) {
-      LOG(ERROR) << "Reload workflows file path:" << name << " at: ["
-                 << _workflow_path << "/" << _workflow_file << "] failed!";
+      LOG(ERROR) << "Reload workflows file path:"
+                 << " at: [" << _workflow_path << "/" << _workflow_file
+                 << "] failed!";
     }
 
     int ret = 0;
