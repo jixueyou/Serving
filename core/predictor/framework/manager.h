@@ -170,11 +170,11 @@ class WorkflowManager {
 
   int reload() {
     // 重载工作流
-    if (load_workflows(true) != 0) {
-      LOG(ERROR) << "Reload workflows file path:"
-                 << " at: [" << _workflow_path << "/" << _workflow_file
-                 << "] failed!";
-    }
+//    if (load_workflows(true) != 0) {
+//      LOG(ERROR) << "Reload workflows file path:"
+//                 << " at: [" << _workflow_path << "/" << _workflow_file
+//                 << "] failed!";
+//    }
 
     int ret = 0;
     typename boost::unordered_map<std::string, Workflow*>::iterator it =
