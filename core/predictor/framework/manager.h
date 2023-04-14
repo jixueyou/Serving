@@ -14,6 +14,7 @@
 
 #pragma once
 #include <string>
+#include <unordered_set>
 #include <utility>
 
 #include "core/predictor/common/constant.h"
