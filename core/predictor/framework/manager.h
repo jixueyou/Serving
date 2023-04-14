@@ -54,7 +54,7 @@ class WorkflowManager {
     return mgr;
   }
 
-  int load_workflows(bool mem_merge = false) {
+  int load_workflows(bool mem_merge = 0) {
     WorkflowConf workflow_conf;
     if (configure::read_proto_conf(
             _workflow_path, _workflow_file, &workflow_conf) != 0) {
@@ -135,7 +135,7 @@ class WorkflowManager {
   int initialize(const std::string path, const std::string file) {
     _workflow_path = path;
     _workflow_file = file;
-    load_workflows(false);
+    return load_workflows(0);
   }
 
   Workflow* create_item() { return create_item_impl<Workflow>(); }
@@ -163,11 +163,11 @@ class WorkflowManager {
 
   int reload() {
     // 重载工作流
-    //    if (load_workflows(1) != 0) {
-    //      LOG(ERROR) << "Reload workflows file path:"
-    //                 << " at: [" << _workflow_path << "/" << _workflow_file
-    //                 << "] failed!";
-    //    }
+    if (load_workflows(1) != 0) {
+      LOG(ERROR) << "Reload workflows file path:"
+                 << " at: [" << _workflow_path << "/" << _workflow_file
+                 << "] failed!";
+    }
 
     int ret = 0;
     typename boost::unordered_map<std::string, Workflow*>::iterator it =
