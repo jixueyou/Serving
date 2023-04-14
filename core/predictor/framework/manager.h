@@ -66,6 +66,7 @@ class WorkflowManager {
     // 当前配置文件读取的工作流名称
     std::unordered_set<std::string> new_workflow_set;
     auto insert_workflows = [this, workflow_conf, &new_workflow_set]() -> int {
+      LOG(ERROR) << "4444444444444444444";
       try {
         uint32_t item_size = workflow_conf.workflows_size();
         for (uint32_t ii = 0; ii < item_size; ii++) {
@@ -88,7 +89,7 @@ class WorkflowManager {
             LOG(ERROR) << "Failed init item: " << name << " at:" << ii << "!";
             return -1;
           }
-
+          LOG(ERROR) << "5555555555555555555555";
           std::pair<
               typename boost::unordered_map<std::string, Workflow*>::iterator,
               bool>
@@ -97,7 +98,7 @@ class WorkflowManager {
             LOG(ERROR) << "Failed insert item:" << name << " at:" << ii << "!";
             return -1;
           }
-
+          LOG(ERROR) << "66666666666666666666666";
           LOG(INFO) << "Succ init item:" << name
                     << " from conf:" << this->_workflow_path << "/"
                     << this->_workflow_file << ", at:" << ii << "!";
@@ -113,19 +114,23 @@ class WorkflowManager {
     if (!mem_merge) {
       return insert_workflows();
     } else {
+      LOG(ERROR) << "111111111111111111111111";
       if (insert_workflows() != 0) {
         return -1;
       }
+      LOG(ERROR) << "2222222222222222222222222";
       typename boost::unordered_map<std::string, Workflow*>::iterator it =
           _item_map.begin();
       for (; it != _item_map.end(); ++it) {
         std::string workflow_name = it->first;
         if (new_workflow_set.find(workflow_name) == new_workflow_set.end()) {
+          LOG(ERROR) << "33333333333333333333333";
           // 擦除不存在的工作流
           delete (it->second);
           it->second = nullptr;
           _item_map.erase(it++);
         } else {
+          LOG(ERROR) << "44444444444444444444444";
           it++;
         }
       }
