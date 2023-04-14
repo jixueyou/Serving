@@ -238,12 +238,12 @@ std::vector<Workflow*>* InferService::_map_request_to_workflow(
 
   std::vector<Workflow*>* p_workflow;
   if (field_value == "") {
-    const std::string& first_workflow_name = flows[0];
+    const std::string& first_workflow_name = _flows[0];
     p_workflow = _request_to_workflow_map.seek(first_workflow_name);
     LOG(INFO) << "(logid=" << log_id << ") " << desc->full_name() << ",field"
               << _request_field_key << " : " << first_workflow_name;
   } else {
-    p_workflow = request_to_workflow_map.seek(field_value);
+    p_workflow = _request_to_workflow_map.seek(field_value);
     LOG(INFO) << "(logid=" << log_id << ") " << desc->full_name() << ",field"
               << _request_field_key << " : " << field_value;
   }
