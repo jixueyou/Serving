@@ -146,35 +146,11 @@ message Workflow {
 // Workflow conf
 message WorkflowConf { repeated Workflow workflows = 1; }
 
-// request_field_key: specifies use which request field as mapping key (see
-// request_field_key in InferService below)
-//
-// If the value of the user request field specified by `request_field_key`
-// matches the value of `request_field_value` in one of the
-// ValueMappedWorkflows, the request will be directed to the workflow specified
-// in the `workflow` field of that ValueMappedWorkflow
-//
-message ValueMappedWorkflow {
-  required string request_field_value = 1;
-  required string workflow = 2;
-};
-
 message InferService {
   required string name = 1;
   optional string merger = 2;
-
-  optional bool enable_map_request_to_workflow = 3 [ default = false ];
-
-  // If enable_map_request_to_workfow = true
-  //
-  // Each request will be mapped to a workflow according to the value in
-  // in user request field specified by `request_field_key` (see the
-  // comments for ValueMappedWorkflow above)
-  optional string request_field_key = 4;
-  repeated ValueMappedWorkflow value_mapped_workflows = 5;
-
-  // If enable_map_request_to_workflow = false
-  repeated string workflows = 6;
+  optional string request_field_key = 3;
+  repeated string workflows = 4;
 };
 
 // InferService conf

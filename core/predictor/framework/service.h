@@ -16,6 +16,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+
 #include "core/predictor/common/inner_common.h"
 #include "core/predictor/framework/merger.h"
 #include "core/predictor/framework/workflow.h"
@@ -77,7 +78,7 @@ class InferService {
       const google::protobuf::Message* request, const uint64_t log_id);
 
  private:
-  std::vector<Workflow*> _flows;
+  std::vector<std::string> _flows;
   std::string _infer_service_format;
   uint64_t _last_change_timestamp;
   bool _enable_map_request_to_workflow;
