@@ -155,105 +155,105 @@ int InferService::inference(const google::protobuf::Message* request,
     }
     return ERR_OK;
   }
+}
 
-  int InferService::debug(const google::protobuf::Message* request,
-                          google::protobuf::Message* response,
-                          const uint64_t log_id,
-                          butil::IOBufBuilder* debug_os) {
-    return inference(request, response, log_id, debug_os);
+int InferService::debug(const google::protobuf::Message* request,
+                        google::protobuf::Message* response,
+                        const uint64_t log_id,
+                        butil::IOBufBuilder* debug_os) {
+  return inference(request, response, log_id, debug_os);
+}
+
+int InferService::_execute_workflow(Workflow* workflow,
+                                    const google::protobuf::Message* request,
+                                    google::protobuf::Message* response,
+                                    const uint64_t log_id,
+                                    butil::IOBufBuilder* debug_os) {
+  butil::Timer workflow_time(butil::Timer::STARTED);
+  // create and submit beginer channel
+  BuiltinChannel req_channel;
+  req_channel.init(0, START_OP_NAME);
+  req_channel = request;
+
+  DagView* dv = workflow->fetch_dag_view(full_name(), log_id);
+  dv->set_request_channel(req_channel, log_id);
+
+  // call actual inference interface
+  int errcode = dv->execute(log_id, debug_os);
+  if (errcode < 0) {
+    LOG(ERROR) << "(logid=" << log_id
+               << ") Failed execute dag for workflow:" << workflow->name();
+    return errcode;
   }
 
-  int InferService::_execute_workflow(Workflow * workflow,
-                                      const google::protobuf::Message* request,
-                                      google::protobuf::Message* response,
-                                      const uint64_t log_id,
-                                      butil::IOBufBuilder* debug_os) {
-    butil::Timer workflow_time(butil::Timer::STARTED);
-    // create and submit beginer channel
-    BuiltinChannel req_channel;
-    req_channel.init(0, START_OP_NAME);
-    req_channel = request;
-
-    DagView* dv = workflow->fetch_dag_view(full_name(), log_id);
-    dv->set_request_channel(req_channel, log_id);
-
-    // call actual inference interface
-    int errcode = dv->execute(log_id, debug_os);
-    if (errcode < 0) {
-      LOG(ERROR) << "(logid=" << log_id
-                 << ") Failed execute dag for workflow:" << workflow->name();
-      return errcode;
-    }
-
-    TRACEPRINTF("(logid=%" PRIu64 ") finish to dv execute", log_id);
-    // create ender channel and copy
-    const Channel* res_channel = dv->get_response_channel(log_id);
-    if (res_channel == NULL) {
-      LOG(ERROR) << "(logid=" << log_id << ") Failed get response channel";
-      return ERR_INTERNAL_FAILURE;
-    }
-
-    if (!_merger || !_merger->merge(res_channel->message(), response)) {
-      LOG(ERROR) << "(logid=" << log_id
-                 << ") Failed merge channel res to response";
-      return ERR_INTERNAL_FAILURE;
-    }
-    TRACEPRINTF("(logid=%" PRIu64 ") finish to copy from", log_id);
-
-    workflow_time.stop();
-    LOG(INFO) << "(logid=" << log_id
-              << ") workflow total time: " << workflow_time.u_elapsed();
-    PredictorMetric::GetInstance()->update_latency_metric(
-        WORKFLOW_METRIC_PREFIX + dv->full_name(), workflow_time.u_elapsed());
-
-    // return tls data to object pool
-    workflow->return_dag_view(dv);
-    TRACEPRINTF("(logid=%" PRIu64 ") finish to return dag view", log_id);
-    return ERR_OK;
+  TRACEPRINTF("(logid=%" PRIu64 ") finish to dv execute", log_id);
+  // create ender channel and copy
+  const Channel* res_channel = dv->get_response_channel(log_id);
+  if (res_channel == NULL) {
+    LOG(ERROR) << "(logid=" << log_id << ") Failed get response channel";
+    return ERR_INTERNAL_FAILURE;
   }
 
-  std::vector<Workflow*>* InferService::_map_request_to_workflow(
-      const google::protobuf::Message* request, const uint64_t log_id) {
-    const google::protobuf::Descriptor* desc = request->GetDescriptor();
-    const google::protobuf::FieldDescriptor* field =
-        desc->FindFieldByName(_request_field_key);
-    if (field == NULL) {
-      LOG(ERROR) << "(logid=" << log_id << ") No field[" << _request_field_key
-                 << "] in [" << desc->full_name() << "].";
-      return NULL;
-    }
-    if (field->is_repeated()) {
-      LOG(ERROR) << "(logid=" << log_id << ") field[" << desc->full_name()
-                 << "." << _request_field_key << "] is repeated.";
-      return NULL;
-    }
-    if (field->cpp_type() !=
-        google::protobuf::FieldDescriptor::CPPTYPE_STRING) {
-      LOG(ERROR) << "(logid=" << log_id << ") field[" << desc->full_name()
-                 << "." << _request_field_key << "] should be string";
-      return NULL;
-    }
-    const std::string& field_value =
-        request->GetReflection()->GetString(*request, field);
-
-    std::vector<Workflow*>* p_workflow;
-    if (field_value == "") {
-      const std::string& first_workflow_name = flows[0];
-      p_workflow = _request_to_workflow_map.seek(first_workflow_name);
-      LOG(INFO) << "(logid=" << log_id << ") " << desc->full_name() << ",field"
-                << _request_field_key << " : " << first_workflow_name;
-    } else {
-      p_workflow = request_to_workflow_map.seek(field_value);
-      LOG(INFO) << "(logid=" << log_id << ") " << desc->full_name() << ",field"
-                << _request_field_key << " : " << field_value;
-    }
-    if (p_workflow == NULL) {
-      LOG(ERROR) << "(logid=" << log_id << ") cannot find key[" << field_value
-                 << "] in _request_to_workflow_map";
-      return NULL;
-    }
-    return p_workflow;
+  if (!_merger || !_merger->merge(res_channel->message(), response)) {
+    LOG(ERROR) << "(logid=" << log_id
+               << ") Failed merge channel res to response";
+    return ERR_INTERNAL_FAILURE;
   }
+  TRACEPRINTF("(logid=%" PRIu64 ") finish to copy from", log_id);
+
+  workflow_time.stop();
+  LOG(INFO) << "(logid=" << log_id
+            << ") workflow total time: " << workflow_time.u_elapsed();
+  PredictorMetric::GetInstance()->update_latency_metric(
+      WORKFLOW_METRIC_PREFIX + dv->full_name(), workflow_time.u_elapsed());
+
+  // return tls data to object pool
+  workflow->return_dag_view(dv);
+  TRACEPRINTF("(logid=%" PRIu64 ") finish to return dag view", log_id);
+  return ERR_OK;
+}
+
+std::vector<Workflow*>* InferService::_map_request_to_workflow(
+    const google::protobuf::Message* request, const uint64_t log_id) {
+  const google::protobuf::Descriptor* desc = request->GetDescriptor();
+  const google::protobuf::FieldDescriptor* field =
+      desc->FindFieldByName(_request_field_key);
+  if (field == NULL) {
+    LOG(ERROR) << "(logid=" << log_id << ") No field[" << _request_field_key
+               << "] in [" << desc->full_name() << "].";
+    return NULL;
+  }
+  if (field->is_repeated()) {
+    LOG(ERROR) << "(logid=" << log_id << ") field[" << desc->full_name() << "."
+               << _request_field_key << "] is repeated.";
+    return NULL;
+  }
+  if (field->cpp_type() != google::protobuf::FieldDescriptor::CPPTYPE_STRING) {
+    LOG(ERROR) << "(logid=" << log_id << ") field[" << desc->full_name() << "."
+               << _request_field_key << "] should be string";
+    return NULL;
+  }
+  const std::string& field_value =
+      request->GetReflection()->GetString(*request, field);
+
+  std::vector<Workflow*>* p_workflow;
+  if (field_value == "") {
+    const std::string& first_workflow_name = flows[0];
+    p_workflow = _request_to_workflow_map.seek(first_workflow_name);
+    LOG(INFO) << "(logid=" << log_id << ") " << desc->full_name() << ",field"
+              << _request_field_key << " : " << first_workflow_name;
+  } else {
+    p_workflow = request_to_workflow_map.seek(field_value);
+    LOG(INFO) << "(logid=" << log_id << ") " << desc->full_name() << ",field"
+              << _request_field_key << " : " << field_value;
+  }
+  if (p_workflow == NULL) {
+    LOG(ERROR) << "(logid=" << log_id << ") cannot find key[" << field_value
+               << "] in _request_to_workflow_map";
+    return NULL;
+  }
+  return p_workflow;
+}
 
 }  // namespace predictor
 }  // namespace paddle_serving
