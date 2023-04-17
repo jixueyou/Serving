@@ -3,3 +3,5 @@ build
 .bcloud*
 output
 *~
+java/target/*
+.gitignore

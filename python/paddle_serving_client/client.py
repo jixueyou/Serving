@@ -117,14 +117,16 @@ class SDKConfig(object):
         self.sdk_desc.default_variant_conf.connection_conf.max_connection_per_host = 100
         self.sdk_desc.default_variant_conf.connection_conf.hedge_request_timeout_ms = -1
         self.sdk_desc.default_variant_conf.connection_conf.hedge_fetch_retry_count = 2
-        self.sdk_desc.default_variant_conf.connection_conf.connection_type = "pooled"
+        #self.sdk_desc.default_variant_conf.connection_conf.connection_type = "pooled"
+        self.sdk_desc.default_variant_conf.connection_conf.connection_type = "single"  #Change the value to grpc
 
         self.sdk_desc.default_variant_conf.naming_conf.cluster_filter_strategy = "Default"
         self.sdk_desc.default_variant_conf.naming_conf.load_balance_strategy = "la"
 
         self.sdk_desc.default_variant_conf.rpc_parameter.compress_type = 0
         self.sdk_desc.default_variant_conf.rpc_parameter.package_size = 20
-        self.sdk_desc.default_variant_conf.rpc_parameter.protocol = "baidu_std"
+        #self.sdk_desc.default_variant_conf.rpc_parameter.protocol = "baidu_std"
+        self.sdk_desc.default_variant_conf.rpc_parameter.protocol = "h2:grpc" #Change the value to grpc
         self.sdk_desc.default_variant_conf.rpc_parameter.max_channel_per_request = 3
 
         return self.sdk_desc
